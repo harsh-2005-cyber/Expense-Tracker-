@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expense Tracker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .form-group {
+            margin-bottom: 10px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .summary {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .transaction-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .transaction-item {
+            padding: 8px;
+            border-bottom: 1px solid #ddd;
+        }
+        .transaction-item:last-child {
+            border-bottom: none;
+        }
+        .expense {
+            color: #dc3545;
+        }
+        .income {
+            color: #28a745;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>💰 Expense Tracker</h1>
+        
+        <div class="section">
+            <h2>Add Transaction</h2>
+            <div class="form-group">
+                <label>Type:</label>
+                <select id="transactionType">
+                    <option value="expense">Expense</option>
+                    <option value="income">Income</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label id="descriptionLabel">Description:</label>
+                <input type="text" id="description" placeholder="Enter description">
+            </div>
+            <div class="form-group">
+                <label>Amount:</label>
+                <input type="number" id="amount" placeholder="0.00" step="0.01">
+            </div>
+            <div class="form-group" id="categoryGroup">
+                <label>Category:</label>
+                <select id="category">
+                    <option value="Food">Food</option>
+                    <option value="Transport">Transport</option>
+                    <option value="Entertainment">Entertainment</option>
+                    <option value="Utilities">Utilities</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Date:</label>
+                <input type="date" id="date">
+            </div>
+            <button onclick="addTransaction()">Add Transaction</button>
+        </div>
+
+        <div class="section summary">
+            <h2>Financial Summary</h2>
+            <div id="summary">
+                <p>Total Income: <span id="totalIncome">$0.00</span></p>
+                <p>Total Expenses: <span id="totalExpenses">$0.00</span></p>
+                <p>Savings: <span id="savings">$0.00</span></p>
+            </div>
+            <button onclick="loadSummary()">Refresh Summary</button>
+        </div>
+
+        <div class="section">
+            <h2>Monthly Summary</h2>
+            <div class="form-group">
+                <label>Month:</label>
+                <select id="month">
+                    <option value="0">January</option>
+                    <option value="1">February</option>
+                    <option value="2">March</option>
+                    <option value="3">April</option>
+                    <option value="4">May</option>
+                    <option value="5">June</option>
+                    <option value="6">July</option>
+                    <option value="7">August</option>
+                    <option value="8">September</option>
+                    <option value="9">October</option>
+                    <option value="10">November</option>
+                    <option value="11">December</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Year:</label>
+                <input type="number" id="year" value="2024" min="2000" max="2100">
+            </div>
+            <button onclick="viewMonthlySummary()">View Monthly Summary</button>
+            <div id="monthlySummary"></div>
+        </div>
+
+        <div class="section">
+            <h2>All Transactions</h2>
+            <button onclick="loadTransactions()">Load Transactions</button>
+            <div class="transaction-list" id="transactions"></div>
+        </div>
+    </div>
+
+    <script>
+        // Set today's date as default
+        document.getElementById('date').valueAsDate = new Date();
+
+        // Update form based on transaction type
+        document.getElementById('transactionType').addEventListener('change', function() {
+            const type = this.value;
+            const categoryGroup = document.getElementById('categoryGroup');
+            const descriptionLabel = document.getElementById('descriptionLabel');
+            
+            if (type === 'income') {
+                categoryGroup.style.display = 'none';
+                descriptionLabel.textContent = 'Source:';
+            } else {
+                categoryGroup.style.display = 'block';
+                descriptionLabel.textContent = 'Description:';
+            }
+        });
+
+        async function addTransaction() {
+            const type = document.getElementById('transactionType').value;
+            const description = document.getElementById('description').value;
+            const amount = parseFloat(document.getElementById('amount').value);
+            const date = document.getElementById('date').value;
+            const category = document.getElementById('category').value;
+
+            if (!description || !amount || !date) {
+                alert('Please fill in all fields');
+                return;
+            }
+
+            const transactionData = {
+                type: type,
+                description: description,
+                amount: amount,
+                date: date,
+                category: category
+            };
+
+            try {
+                const response = await fetch('http://localhost:8080/api/transactions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(transactionData)
+                });
+
+                if (response.ok) {
+                    alert('Transaction added successfully!');
+                    clearForm();
+                    loadSummary();
+                } else {
+                    alert('Error adding transaction: ' + response.statusText);
+                }
+            } catch (error) {
+                alert('Error connecting to server: ' + error.message);
+            }
+        }
+
+        function clearForm() {
+            document.getElementById('description').value = '';
+            document.getElementById('amount').value = '';
+            document.getElementById('date').valueAsDate = new Date();
+        }
+
+        async function loadSummary() {
+            try {
+                const response = await fetch('http://localhost:8080/api/summary');
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('totalIncome').textContent = `$${data.totalIncome.toFixed(2)}`;
+                    document.getElementById('totalExpenses').textContent = `$${data.totalExpenses.toFixed(2)}`;
+                    document.getElementById('savings').textContent = `$${data.savings.toFixed(2)}`;
+                    document.getElementById('savings').style.color = data.savings >= 0 ? '#28a745' : '#dc3545';
+                } else {
+                    alert('Error loading summary: ' + response.statusText);
+                }
+            } catch (error) {
+                alert('Error connecting to server: ' + error.message);
+            }
+        }
+
+        async function viewMonthlySummary() {
+            const month = parseInt(document.getElementById('month').value);
+            const year = parseInt(document.getElementById('year').value);
+            
+            try {
+                const response = await fetch('http://localhost:8080/api/transactions');
+                if (response.ok) {
+                    const data = await response.json();
+                    let monthlyIncome = 0;
+                    let monthlyExpenses = 0;
+
+                    // Calculate monthly income from backend data
+                    data.incomes.forEach(income => {
+                        const incomeDate = new Date(income.date);
+                        if (incomeDate.getMonth() === month && incomeDate.getFullYear() === year) {
+                            monthlyIncome += income.amount;
+                        }
+                    });
+
+                    // Calculate monthly expenses from backend data
+                    data.expenses.forEach(expense => {
+                        const expenseDate = new Date(expense.date);
+                        if (expenseDate.getMonth() === month && expenseDate.getFullYear() === year) {
+                            monthlyExpenses += expense.amount;
+                        }
+                    });
+
+                    const monthlySavings = monthlyIncome - monthlyExpenses;
+                    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
+                                       'August', 'September', 'October', 'November', 'December'];
+
+                    document.getElementById('monthlySummary').innerHTML = `
+                        <h3>${monthNames[month]} ${year}</h3>
+                        <p>Income: $${monthlyIncome.toFixed(2)}</p>
+                        <p>Expenses: $${monthlyExpenses.toFixed(2)}</p>
+                        <p>Savings: $${monthlySavings.toFixed(2)}</p>
+                    `;
+                } else {
+                    alert('Error loading transactions: ' + response.statusText);
+                }
+            } catch (error) {
+                alert('Error connecting to server: ' + error.message);
+            }
+        }
+
+        function loadTransactions() {
+            const transactions = JSON.parse(localStorage.getItem('transactions') || '[]');
+            const transactionsDiv = document.getElementById('transactions');
+            
+            if (transactions.length === 0) {
+                transactionsDiv.innerHTML = '<p>No transactions found.</p>';
+                return;
+            }
+
+            transactionsDiv.innerHTML = '';
+            transactions.forEach((transaction, index) => {
+                const div = document.createElement('div');
+                div.className = `transaction-item ${transaction.type}`;
+                div.innerHTML = `
+                    <strong>${transaction.type.toUpperCase()}</strong> - 
+                    ${transaction.description}: $${transaction.amount.toFixed(2)}<br>
+                    Date: ${transaction.date}${transaction.category ? ', Category: ' + transaction.category : ''}
+                `;
+                transactionsDiv.appendChild(div);
+            });
+        }
+
+        // Load initial summary
+        loadSummary();
+    </script>
+</body>
+</html>
